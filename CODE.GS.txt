@@ -1,0 +1,119 @@
+const SS_ID = '1_liF272V3KEZthPj4QKG1bA34eDKLUxGbInmUGmhKmY'; 
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+      .setTitle('STORE WAREHOUSE')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) 
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME); // Sangat penting untuk hardware
+}
+
+
+function getPOData() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Info PO');
+  const lastRow = sheet.getLastRow();
+  // Pastikan angka 13 di bawah ini ada, untuk mengambil kolom A sampai M
+  return sheet.getRange(2, 1, lastRow - 1, 13).getDisplayValues();
+}
+function addInventoryItem(code, nama, stok, lokasi, harga) {
+  try {
+    const ss = SpreadsheetApp.openById(SS_ID);
+    const sheet = ss.getSheetByName('Material Master');
+    sheet.appendRow([code, nama, stok, lokasi, harga]);
+    return "Sukses";
+  } catch (e) {
+    throw new Error("Gagal simpan: " + e.toString());
+  }
+}
+// FUNGSI SIMPAN
+function addNewMaterial(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Material Master');
+  const values = sheet.getDataRange().getValues();
+  
+  // Ambil kode baru yang diinput user, bersihkan spasi, dan jadikan huruf kapital (jika kode berupa teks)
+  const codeBaru = String(data[0]).trim().toUpperCase(); 
+  
+  // Looping untuk cek apakah kode sudah ada (mulai dari baris ke-2 untuk melewati header)
+  for (let i = 1; i < values.length; i++) {
+    const codeEksis = String(values[i][0]).trim().toUpperCase();
+    if (codeEksis === codeBaru) {
+      // Jika kembar, lempar error ke frontend
+      throw new Error("Kode Material '" + data[0] + "' sudah terdaftar di sistem!");
+    }
+  }
+  
+  // Jika lolos pengecekan (tidak ada yang sama), lanjutkan simpan data
+  try {
+    sheet.appendRow([data[0], data[1], data[2], data[3], data[4]]);
+    return "Sukses";
+  } catch (e) {
+    throw new Error("Gagal simpan data: " + e.toString());
+  }
+}
+
+// FUNGSI AMBIL DATA TABEL
+function getInventoryData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Material Master");
+  if (!sheet) return [];
+  return sheet.getDataRange().getValues().slice(1);
+}
+
+function getDataForExport() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Material Master");
+  // Mengambil data dari Kolom A sampai J (10 kolom)
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+}
+
+// FUNGSI UPDATE MATERIAL
+function updateMaterial(oldCode, newVals) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Material Master"); // Sesuaikan nama sheet
+  const data = sheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] == oldCode) {
+      sheet.getRange(i + 1, 1, 1, 6).setValues([newVals]); // Update kolom A sampai F
+      break;
+    }
+  }
+}
+
+function deleteMaterial(code) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Material Master");
+  const data = sheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] == code) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+function getReceiveData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Receive');
+  const data = sheet.getDataRange().getValues();
+  
+  // Hapus header
+  data.shift(); 
+  
+  // Balik urutan data agar data terbaru ada di atas (reverse)
+  // lalu ambil 20 data pertama
+  return data.reverse().slice(0, 20).map(row => ({
+    date: row[0],
+    po: row[1],
+    material: row[2],
+    desc: row[3],
+    qty: row[4],
+    unit: row[5],
+    value: row[6]
+  }));
+}
+
+function addReceiveData(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Receive');
+  sheet.appendRow([data.date, data.po, data.material, data.desc, data.qty, data.unit, data.value]);
+  return "Success";
+}
+
